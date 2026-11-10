@@ -1,0 +1,98 @@
+const { Telegraf, Markup } = require('telegraf');
+
+const token = process.env.BOT_TOKEN;
+if (!token) {
+  throw new Error('BOT_TOKEN environment variable not set!');
+}
+
+const bot = new Telegraf(token);
+
+// Główna klawiatura Reply (na dole ekranu)
+const mainKeyboard = Markup.keyboard([
+  ['Konto osobiste', 'Doładuj swoje saldo'],
+  ['🛒 Kup produkt 🛒', '⭐ Opinia ⭐'],
+  ['📁 Zasady 📁', '🤖 Game BOT 🤖'],
+  ['👨‍💻 Operator 👨‍💻', '💬 Chat 💬'],
+  ['🛠 Utworzyć klon bota 🛠']
+].resize());
+
+// Obsługa komendy /start
+bot.start((ctx) => {
+  const userId = ctx.from.id;
+  const firstName = ctx.from.first_name || 'Użytkowniku';
+  
+  const welcomeMessage = `🦈 Witam ${firstName}\n\n` +
+    `ℹ️ Twój ID: ${userId}\n` +
+    `Twój Balans: 0.0 PLN\n` +
+    `Rabat: 0.0%\n` +
+    `Bonusy: 0\n` +
+    `Zakupy: 0`;
+
+  return ctx.reply(welcomeMessage, mainKeyboard);
+});
+
+// Obsługa przycisku "Konto osobiste"
+bot.hears('Konto osobiste', (ctx) => {
+  const userId = ctx.from.id;
+  const profileText = `Profil ${ctx.from.first_name}\n` +
+    `Twój ID: ${userId}\n` +
+    `Twoje saldo: 0 PLN\n` +
+    `Twój status: 🌱 NOWICJUSZ 🌱\n` +
+    `Zniżka na status: 0.0%\n` +
+    `Zniżka imienna: 0.0%\n` +
+    `Bonusy: 0.00\n` +
+    `Zakupy: 0`;
+
+  return ctx.reply(profileText, Markup.inlineKeyboard([
+    [Markup.button.callback('Moje referaly', 'ref')],
+    [Markup.button.callback('Zakupy', 'shop_history')],
+    [Markup.button.callback('Doładuj swoje saldo', 'topup_menu')],
+    [Markup.button.callback('↩️ Wstecz', 'home'), Markup.button.callback('🏠 Dom', 'home')]
+  ]));
+});
+
+// Obsługa przycisku "Kup produkt" -> Wybór miasta
+bot.hears('🛒 Kup produkt 🛒', (ctx) => {
+  return ctx.reply('Kupić! Wybierz miasto:', Markup.inlineKeyboard([
+    [Markup.button.callback('🏙 WROCŁAW 🏙', 'city_wroclaw')],
+    [Markup.button.callback('🏙 WARSZAWA 🏙', 'city_warszawa')],
+    [Markup.button.callback('🏙 CZĘSTOCHOWA 🏙', 'city_czestochowa')],
+    [Markup.button.callback('🏙 KATOWICE 🏙', 'city_katowice')],
+    [Markup.button.callback('🏠 Dom', 'home')]
+  ]));
+});
+
+// Obsługa wyboru Częstochowy i wyświetlania produktów
+bot.action('city_czestochowa', async (ctx) => {
+  await ctx.answerCbQuery();
+  return ctx.editMessageText(
+    'Wybrałeś miasto: 🏙 CZĘSTOCHOWA 🏙\nWybierz produkt:',
+    Markup.inlineKeyboard([
+      [Markup.button.callback('🌿☘️🌿 ШШ «Tripple G» 3g - 180 PLN', 'prod_tg_3g')],
+      [Markup.button.callback('🍫🇲🇦 Гаш «Black Gold» 3g - 185 PLN', 'prod_bg_3g')],
+      [Markup.button.callback('↩️ Wstecz', 'buy_menu'), Markup.button.callback('🏠 Dom', 'home')]
+    ])
+  );
+});
+
+// Powrót do menu głównego
+bot.action('home', async (ctx) => {
+  await ctx.answerCbQuery();
+  await ctx.deleteMessage();
+  return ctx.reply('Menu główne:', mainKeyboard);
+});
+
+// Eksport dla Vercel Serverless Functions
+module.exports = async (req, res) => {
+  try {
+    if (req.method === 'POST') {
+      await bot.handleUpdate(req.body);
+      res.status(200).send('OK');
+    } else {
+      res.status(200).send('Leviafan Bot is running on Vercel!');
+    }
+  } catch (error) {
+    console.error('Error handling update:', error);
+    res.status(500).send('Error');
+  }
+};
